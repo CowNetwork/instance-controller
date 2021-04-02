@@ -1,0 +1,7 @@
+apiVersion: instance.my.domain/v1
+kind: Instance
+metadata:
+  name: instance-sample
+spec:
+  # Add fields here
+  foo: bar

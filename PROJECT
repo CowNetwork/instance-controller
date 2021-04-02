@@ -1,0 +1,7 @@
+domain: cow.network
+repo: github.com/cownetwork/instance-controller
+resources:
+- group: instance
+  kind: Instance
+  version: v1
+version: "2"
