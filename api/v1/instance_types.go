@@ -20,6 +20,11 @@ type InstanceStatus struct {
 	// State holds the current observed state of the instance
 	// It is restricted to Initializing, Running and Ending
 	// Applications can register their custom States in InstanceMetadata
+	// These states have the following meanings:
+	// - Initializing: Instance is starting players should not be able to connect
+	// - Running: Initialization is complete players can or have already joined
+	// - Ending: Instance is about to shutdown. At this stage it should be save to
+	// kill the instance at any point.
 	// +kubebuilder:validation:Enum=Initializing;Running;Ending
 	State string `json:"state"`
 
