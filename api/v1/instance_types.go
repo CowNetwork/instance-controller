@@ -9,7 +9,6 @@ import (
 
 // InstanceSpec defines the desired state of Instance
 type InstanceSpec struct {
-
 	// Template defines the underlying pod that will be started when creating the Instance
 	Template corev1.PodSpec `json:"template"`
 }
