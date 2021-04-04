@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"log"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -41,7 +42,6 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	pod := &corev1.Pod{}
 
 	err := r.Get(ctx, client.ObjectKey{Name: idstr, Namespace: instance.Namespace}, pod)
-
 	if err != nil && !apierrors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
@@ -57,6 +57,12 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		instance.Annotations["instance.cow.network/id"] = id.String()
+		instance.Status.State = instancev1.InitializingState
+
+		if err := r.Update(ctx, &instance); err != nil {
+			log.Error(err, "could not update Instance")
+			return ctrl.Result{}, err
+		}
 
 		pod, err := r.createPod(&instance)
 		if err != nil {
@@ -68,14 +74,6 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			log.Error(err, "could not create Pod for Instance", "instance_id", id.String())
 			return ctrl.Result{}, err
 		}
-
-		instance.Status.State = instancev1.InitializingState
-
-		if err := r.Update(ctx, &instance); err != nil {
-			log.Error(err, "could not update Instance")
-			return ctrl.Result{}, err
-		}
-
 		return ctrl.Result{}, nil
 	}
 
@@ -94,15 +92,23 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.Pod, error) {
+	id := instance.Annotations["instance.cow.network/id"]
+
 	p := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
-			Name:        instance.Annotations["instance.cow.network/id"],
+			Name:        id,
 			Namespace:   instance.Namespace,
 		},
 		Spec: *instance.Spec.Template.DeepCopy(),
 	}
+
+	for i, _ := range p.Spec.Containers {
+		p.Spec.Containers[i].Env = append(p.Spec.Containers[i].Env, corev1.EnvVar{Name: "INSTANCE_ID", Value: id})
+	}
+
+	log.Println(p.Spec.Containers[0].Env)
 
 	for k, v := range instance.Annotations {
 		p.Annotations[k] = v
@@ -120,6 +126,7 @@ func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.P
 }
 
 func (r *InstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&instancev1.Instance{}).
 		Owns(&corev1.Pod{}).
