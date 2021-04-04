@@ -27,13 +27,6 @@ const (
 	EndingState InstanceState = "Ending"
 )
 
-func IsValidState(s InstanceState) bool {
-	if s != InitializingState && s != RunningState && s != EndingState {
-		return false
-	}
-	return true
-}
-
 // InstanceSpec defines the desired state of Instance
 type InstanceSpec struct {
 	// Template defines the underlying pod that will be started when creating the Instance

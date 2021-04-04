@@ -93,7 +93,6 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.Pod, error) {
 	id := instance.Annotations["instance.cow.network/id"]
-
 	p := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
@@ -104,7 +103,7 @@ func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.P
 		Spec: *instance.Spec.Template.DeepCopy(),
 	}
 
-	for i, _ := range p.Spec.Containers {
+	for i := range p.Spec.Containers {
 		p.Spec.Containers[i].Env = append(p.Spec.Containers[i].Env, corev1.EnvVar{Name: "INSTANCE_ID", Value: id})
 	}
 
@@ -126,7 +125,19 @@ func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.P
 }
 
 func (r *InstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
+	if err := mgr.GetFieldIndexer().IndexField(&corev1.Pod{}, ".metadata.controller", func(o runtime.Object) []string {
+		pod := o.(*corev1.Pod)
+		owner := metav1.GetControllerOf(pod)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != instancev1.GroupVersion.String() || owner.Kind != "Instance" {
+			return nil
+		}
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&instancev1.Instance{}).
 		Owns(&corev1.Pod{}).
