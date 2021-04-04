@@ -7,6 +7,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// InstanceState is the current observed state of the instance
+// It is restricted to Initializing, Running and Ending
+// Applications can register their custom States in InstanceMetadata
+// +kubebuilder:validation:Enum=Initializing;Running;Ending
+type InstanceState string
+
+const (
+	// InitializingState indicates that the Instance is starting.
+	// Players should not be able to connect at this point.
+	InitializingState InstanceState = "Initializing"
+
+	// RunningState indicates that initialization has been completed an players
+	// can or have already connected.
+	RunningState InstanceState = "Running"
+
+	// EndingState indicates that the Instance is about to shutdown.
+	// At this stage it should be save to kill the Instance at any point.
+	EndingState InstanceState = "Ending"
+)
+
+func IsValidState(s InstanceState) bool {
+	if s != InitializingState && s != RunningState && s != EndingState {
+		return false
+	}
+	return true
+}
+
 // InstanceSpec defines the desired state of Instance
 type InstanceSpec struct {
 	// Template defines the underlying pod that will be started when creating the Instance
@@ -17,18 +44,10 @@ type InstanceSpec struct {
 type InstanceStatus struct {
 
 	// State holds the current observed state of the instance
-	// It is restricted to Initializing, Running and Ending
-	// Applications can register their custom States in InstanceMetadata
-	// These states have the following meanings:
-	// - Initializing: Instance is starting players should not be able to connect
-	// - Running: Initialization is complete players can or have already joined
-	// - Ending: Instance is about to shutdown. At this stage it should be save to
-	// kill the instance at any point.
-	// +kubebuilder:validation:Enum=Initializing;Running;Ending
-	State string `json:"state"`
+	State InstanceState `json:"state,omitempty"`
 
 	// Metadata holds application specific metadata about the instance
-	Metadata InstanceMetadata `json:"metadata"`
+	Metadata InstanceMetadata `json:"metadata,omitempty"`
 }
 
 // InstanceMetadata defines the metadata of the Instance
@@ -37,7 +56,7 @@ type InstanceMetadata struct {
 	State string `json:"state"`
 
 	// Players currently connected to this Instance.
-	Players []InstancePlayer `json:"players"`
+	Players []InstancePlayer `json:"players,omitempty"`
 }
 
 // InstancePlayer defines metadata of a player connected to this instance
@@ -46,7 +65,7 @@ type InstancePlayer struct {
 	ID string `json:"id"`
 
 	// Metadata contains custom metadata about this player
-	Metadata json.RawMessage `json:"metadata"`
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 // +kubebuilder:object:root=true

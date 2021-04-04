@@ -1,7 +1,11 @@
-apiVersion: instance.my.domain/v1
+apiVersion: instance.cow.network/v1
 kind: Instance
 metadata:
-  name: instance-sample
+  name: test
 spec:
-  # Add fields here
-  foo: bar
+  template:
+    containers:
+      - name: hello-kubernetes
+        image: paulbouwer/hello-kubernetes:1.9
+        ports:
+          - containerPort: 8080

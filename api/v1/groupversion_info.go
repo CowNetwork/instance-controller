@@ -1,3 +1,5 @@
+// +kubebuilder:object:generate=true
+// +groupName=instance.cow.network
 package v1
 
 import (

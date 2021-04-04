@@ -32,19 +32,25 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var instance instancev1.Instance
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
-		log.Error(err, "could not find instance")
+		// ignore not found because we only handle creation of the Instances and the deletion
+		// of the underlying pod
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	idstr := instance.Annotations["instance.cow.network/id"]
-	var pod *corev1.Pod
+	pod := &corev1.Pod{}
 
-	// if pod is not found this and no id is set this indicates we have a completely new instance
 	err := r.Get(ctx, client.ObjectKey{Name: idstr, Namespace: instance.Namespace}, pod)
-	if err != nil && apierrors.IsNotFound(err) && idstr != "" {
+
+	if err != nil && !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	// if no state is set and no pod could be found we have a completely new instance
+	if len(string(instance.Status.State)) == 0 {
 		log.Info("creating new Pod for Instance")
 
-		id, err := uuid.NewUUID()
+		id, err := uuid.NewRandom()
 		if err != nil {
 			log.Error(err, "could not generate instance id")
 			return ctrl.Result{}, err
@@ -62,13 +68,26 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			log.Error(err, "could not create Pod for Instance", "instance_id", id.String())
 			return ctrl.Result{}, err
 		}
+
+		instance.Status.State = instancev1.InitializingState
+
+		if err := r.Update(ctx, &instance); err != nil {
+			log.Error(err, "could not update Instance")
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{}, nil
 	}
 
-	log.Info("deleting Instance because underlying Pod could not be found", "instance_id", idstr)
-	if err := r.Delete(ctx, &instance); err != nil {
-		log.Error(err, "could not delete Instance", "instance_id", idstr)
-		return ctrl.Result{}, err
+	// if we did not find a pod, but the id is set this means
+	// we can delete the corresponding Instance.
+	if err != nil && apierrors.IsNotFound(err) {
+		log.Info("deleting Instance because underlying Pod could not be found", "instance_id", idstr)
+		if err := r.Delete(ctx, &instance); err != nil {
+			log.Error(err, "could not delete Instance", "instance_id", idstr)
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -103,6 +122,6 @@ func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.P
 func (r *InstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&instancev1.Instance{}).
-		Owns(&corev1.Pod).
+		Owns(&corev1.Pod{}).
 		Complete(r)
 }
