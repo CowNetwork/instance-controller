@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"log"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -12,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/cownetwork/instance-controller/annotations"
 	instancev1 "github.com/cownetwork/instance-controller/api/v1"
 )
 
@@ -52,7 +52,11 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		log.Info("created Instance successfully", "instance_id", instance.Annotations["instance.cow.network/id"])
 		break
 	case ActionCleanup:
-		logger := log.WithValues("instance_id", instance.Annotations["instance.cow.network/id"], "instance_name", instance.Name, "namespace", instance.Namespace)
+		logger := log.WithValues(
+			"instance_id", instance.Annotations[annotations.InstanceID],
+			"instance_name", instance.Name,
+			"namespace", instance.Namespace,
+		)
 		if err := r.cleanupInstance(ctx, instance); err != nil {
 			logger.Error(err, "could not cleanup Instance")
 			return ctrl.Result{}, err
@@ -60,7 +64,11 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		logger.Info("cleaned up Instance successfully")
 		break
 	case ActionUpdate:
-		logger := log.WithValues("instance_id", instance.Annotations["instance.cow.network/id"], "instance_name", instance.Name, "namespace", instance.Namespace)
+		logger := log.WithValues(
+			"instance_id", instance.Annotations[annotations.InstanceID],
+			"instance_name", instance.Name,
+			"namespace", instance.Namespace,
+		)
 		if err := r.updateInstance(ctx, &instance); err != nil {
 			logger.Error(err, "could not update Instance")
 			return ctrl.Result{}, err
@@ -134,8 +142,6 @@ func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.P
 	for i := range p.Spec.Containers {
 		p.Spec.Containers[i].Env = append(p.Spec.Containers[i].Env, corev1.EnvVar{Name: "INSTANCE_ID", Value: id})
 	}
-
-	log.Println(p.Spec.Containers[0].Env)
 
 	for k, v := range instance.Annotations {
 		p.Annotations[k] = v
