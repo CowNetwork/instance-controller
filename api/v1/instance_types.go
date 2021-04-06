@@ -16,15 +16,15 @@ type InstanceState string
 const (
 	// InitializingState indicates that the Instance is starting.
 	// Players should not be able to connect at this point.
-	InitializingState InstanceState = "Initializing"
+	StateInitializing InstanceState = "Initializing"
 
-	// RunningState indicates that initialization has been completed an players
+	// StateRunning indicates that initialization has been completed an players
 	// can or have already connected.
-	RunningState InstanceState = "Running"
+	StateRunning InstanceState = "Running"
 
 	// EndingState indicates that the Instance is about to shutdown.
 	// At this stage it should be save to kill the Instance at any point.
-	EndingState InstanceState = "Ending"
+	StateEnding InstanceState = "Ending"
 )
 
 // InstanceSpec defines the desired state of Instance
@@ -38,6 +38,9 @@ type InstanceStatus struct {
 
 	// State holds the current observed state of the instance
 	State InstanceState `json:"state,omitempty"`
+
+	// IP address assigned to the Instance
+	IP string `json:"ip,omitemptyi"`
 
 	// Metadata holds application specific metadata about the instance
 	Metadata InstanceMetadata `json:"metadata,omitempty"`

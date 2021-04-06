@@ -5705,6 +5705,9 @@ spec:
           status:
             description: InstanceStatus defines the observed state of Instance
             properties:
+              ip:
+                description: IP address assigned to the Instance
+                type: string
               metadata:
                 description: Metadata holds application specific metadata about the
                   instance
@@ -5740,6 +5743,8 @@ spec:
                 - Running
                 - Ending
                 type: string
+            required:
+            - ip
             type: object
         type: object
     served: true
