@@ -15,6 +15,8 @@ import (
 	instancev1 "github.com/cownetwork/instance-controller/api/v1"
 )
 
+// TODO: use upspin like errors
+
 // InstanceReconciler reconciles a Instance object
 type InstanceReconciler struct {
 	client.Client
@@ -49,7 +51,7 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err := r.initInstance(ctx, &instance); err != nil {
 			return ctrl.Result{}, err
 		}
-		log.Info("created Instance successfully", "instance_id", instance.Annotations["instance.cow.network/id"])
+		log.Info("created Instance successfully", "instance_id", instance.Annotations[annotations.InstanceID])
 		break
 	case ActionCleanup:
 		logger := log.WithValues(
@@ -88,12 +90,8 @@ func (r *InstanceReconciler) initInstance(ctx context.Context, instance *instanc
 		return err
 	}
 
-	instance.Annotations["instance.cow.network/id"] = id.String()
+	instance.Annotations[annotations.InstanceID] = id.String()
 	instance.Status.State = instancev1.StateInitializing
-
-	if err := r.Update(ctx, instance); err != nil {
-		return err
-	}
 
 	pod, err := r.createPod(instance)
 	if err != nil {
@@ -101,6 +99,10 @@ func (r *InstanceReconciler) initInstance(ctx context.Context, instance *instanc
 	}
 
 	if err := r.Create(ctx, pod); err != nil {
+		return err
+	}
+
+	if err := r.Update(ctx, instance); err != nil {
 		return err
 	}
 
