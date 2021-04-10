@@ -49,7 +49,7 @@ type InstanceStatus struct {
 // InstanceMetadata defines the metadata of the Instance
 type InstanceMetadata struct {
 	// State holds the current observed state of the application.
-	State string `json:"state"`
+	State json.RawMessage `json:"state"`
 
 	// Players currently connected to this Instance.
 	Players []InstancePlayer `json:"players,omitempty"`
