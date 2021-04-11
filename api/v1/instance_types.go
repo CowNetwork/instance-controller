@@ -40,7 +40,7 @@ type InstanceStatus struct {
 	State InstanceState `json:"state,omitempty"`
 
 	// IP address assigned to the Instance
-	IP string `json:"ip,omitemptyi"`
+	IP string `json:"ip,omitempty"`
 
 	// Unique ID of the instance
 	ID string `json:"id,omitempty"`
@@ -52,7 +52,7 @@ type InstanceStatus struct {
 // InstanceMetadata defines the metadata of the Instance
 type InstanceMetadata struct {
 	// State holds the current observed state of the application.
-	State json.RawMessage `json:"state"`
+	State json.RawMessage `json:"state,omitempty"`
 
 	// Players currently connected to this Instance.
 	Players []InstancePlayer `json:"players,omitempty"`

@@ -5737,8 +5737,6 @@ spec:
                     description: State holds the current observed state of the application.
                     format: byte
                     type: string
-                required:
-                - state
                 type: object
               state:
                 description: State holds the current observed state of the instance

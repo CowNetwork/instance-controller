@@ -33,7 +33,7 @@ type Decider struct {
 
 // decide decides based on the instance annotations, status and owned resource(s) what the controller needs to to do.
 func (d *Decider) Decide(ctx context.Context, instance instancev1.Instance, req ctrl.Request) (Action, error) {
-	idstr := instance.Annotations["instance.cow.network/id"]
+	idstr := instance.Status.ID
 	pod := &corev1.Pod{}
 
 	err := d.Client.Get(ctx, client.ObjectKey{Name: idstr, Namespace: instance.Namespace}, pod)
