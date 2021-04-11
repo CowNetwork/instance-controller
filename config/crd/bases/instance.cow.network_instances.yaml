@@ -5705,6 +5705,9 @@ spec:
           status:
             description: InstanceStatus defines the observed state of Instance
             properties:
+              id:
+                description: Unique ID of the instance
+                type: string
               ip:
                 description: IP address assigned to the Instance
                 type: string
@@ -5732,6 +5735,7 @@ spec:
                     type: array
                   state:
                     description: State holds the current observed state of the application.
+                    format: byte
                     type: string
                 required:
                 - state

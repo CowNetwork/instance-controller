@@ -42,6 +42,9 @@ type InstanceStatus struct {
 	// IP address assigned to the Instance
 	IP string `json:"ip,omitemptyi"`
 
+	// Unique ID of the instance
+	ID string `json:"id,omitempty"`
+
 	// Metadata holds application specific metadata about the instance
 	Metadata InstanceMetadata `json:"metadata,omitempty"`
 }

@@ -11,7 +11,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/cownetwork/instance-controller/annotations"
 	instancev1 "github.com/cownetwork/instance-controller/api/v1"
 )
 
@@ -51,11 +50,11 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err := r.initInstance(ctx, &instance); err != nil {
 			return ctrl.Result{}, err
 		}
-		log.Info("created Instance successfully", "instance_id", instance.Annotations[annotations.InstanceID])
+		log.Info("created Instance successfully", "instance_id", instance.Status.ID)
 		break
 	case ActionCleanup:
 		logger := log.WithValues(
-			"instance_id", instance.Annotations[annotations.InstanceID],
+			"instance_id", instance.Status.ID,
 			"instance_name", instance.Name,
 			"namespace", instance.Namespace,
 		)
@@ -67,7 +66,7 @@ func (r *InstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		break
 	case ActionUpdate:
 		logger := log.WithValues(
-			"instance_id", instance.Annotations[annotations.InstanceID],
+			"instance_id", instance.Status.ID,
 			"instance_name", instance.Name,
 			"namespace", instance.Namespace,
 		)
@@ -90,7 +89,7 @@ func (r *InstanceReconciler) initInstance(ctx context.Context, instance *instanc
 		return err
 	}
 
-	instance.Annotations[annotations.InstanceID] = id.String()
+	instance.Status.ID = id.String()
 	instance.Status.State = instancev1.StateInitializing
 
 	pod, err := r.createPod(instance)
@@ -118,7 +117,7 @@ func (r *InstanceReconciler) cleanupInstance(ctx context.Context, instance insta
 
 func (r *InstanceReconciler) updateInstance(ctx context.Context, instance *instancev1.Instance) error {
 	var pod corev1.Pod
-	err := r.Get(ctx, client.ObjectKey{Name: instance.Annotations["instance.cow.network/id"], Namespace: instance.Namespace}, &pod)
+	err := r.Get(ctx, client.ObjectKey{Name: instance.Status.ID, Namespace: instance.Namespace}, &pod)
 	if err != nil {
 		return err
 	}
@@ -130,7 +129,7 @@ func (r *InstanceReconciler) updateInstance(ctx context.Context, instance *insta
 }
 
 func (r *InstanceReconciler) createPod(instance *instancev1.Instance) (*corev1.Pod, error) {
-	id := instance.Annotations["instance.cow.network/id"]
+	id := instance.Status.ID
 	p := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
