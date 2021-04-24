@@ -1,6 +1,7 @@
 package event
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -14,16 +15,15 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-const (
-	SourceURI = "cow.global.instance-service"
-)
-
 type Emitter struct {
 	c      cloudevents.Client
 	sender *kafka.Sender
+	source string
 }
 
-func NewPublisher(brokers []string, topic string) (*Emitter, error) {
+// NewEmitter creates an new Emitter that emitts events in the cloud event Kafka format
+// to the configured Kafka brokers
+func NewEmitter(brokers []string, topic, source string) (*Emitter, error) {
 	const op = "events/NewPublisher"
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
@@ -41,39 +41,131 @@ func NewPublisher(brokers []string, topic string) (*Emitter, error) {
 	return &Emitter{
 		c:      c,
 		sender: sender,
+		source: source,
 	}, nil
 }
 
-func InstanceCreated(instance instancev1.Instance) {
-
-}
-
-func (p *Emitter) makeCloudEvent(eventtype string, msg proto.Message) error {
-	const op = "events/publisher.Publish"
-	event := cloudevents.NewEvent()
-	id, err := uuid.NewRandom()
+// InstanceCreated emitts an InstanceCreatedEvent
+func (e *Emitter) InstanceCreated(ctx context.Context, instance *instancev1.Instance) error {
+	const op = "event/emitter.InstanceCreated"
+	protoinstance, err := instanceToProto(instance)
 	if err != nil {
 		return fmt.Errorf("%s: %v", op, err)
 	}
 
+	msg := &instanceapiv1.InstanceStartedEvent{
+		Instance: protoinstance,
+	}
+
+	event, err := makeCloudEvent("network.cow.instance.started.v1", e.source, msg)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	if result := e.c.Send(
+		kafka.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
+		event,
+	); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("%s: failed to send: %v", op, err)
+	}
+	return nil
+}
+
+// InstanceEnded emitts an InstanceEndedEvent
+func (e *Emitter) InstanceEnded(ctx context.Context, instance *instancev1.Instance) error {
+	const op = "event/emitter.InstanceEnded"
+	protoinstance, err := instanceToProto(instance)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	msg := &instanceapiv1.InstanceEndedEvent{
+		Instance: protoinstance,
+	}
+
+	event, err := makeCloudEvent("network.cow.instance.ended.v1", e.source, msg)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	if result := e.c.Send(
+		kafka.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
+		event,
+	); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("%s: failed to send: %v", op, err)
+	}
+	return nil
+}
+
+// InstanceStateChanged emitts an InstanceStateChangedEvent
+func (e *Emitter) InstanceStateChanged(
+	ctx context.Context,
+	instance *instancev1.Instance,
+	old json.RawMessage,
+	new json.RawMessage,
+) error {
+	const op = "event/emitter.InstanceStateChanged"
+	protoinstance, err := instanceToProto(instance)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	oldstate, err := toStructpb(old)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	newstate, err := toStructpb(new)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	msg := &instanceapiv1.InstanceStateChangedEvent{
+		Instance: protoinstance,
+		OldState: oldstate,
+		NewState: newstate,
+	}
+
+	event, err := makeCloudEvent("network.cow.instance.state-changed.v1", e.source, msg)
+	if err != nil {
+		return fmt.Errorf("%s: %v", op, err)
+	}
+
+	if result := e.c.Send(
+		kafka.WithMessageKey(ctx, sarama.StringEncoder(event.ID())),
+		event,
+	); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("%s: failed to send: %v", op, err)
+	}
+	return nil
+}
+
+func makeCloudEvent(eventtype, source string, msg proto.Message) (cloudevents.Event, error) {
+	const op = "event/makeCloudEvent"
+	event := cloudevents.NewEvent()
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return cloudevents.Event{}, fmt.Errorf("%s: %v", op, err)
+	}
+
 	event.SetID(id.String())
-	event.SetSource(SourceURI)
+	event.SetSource(source)
 	event.SetType(eventtype)
 
 	data, err := proto.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("%s: %v", op, err)
+		return cloudevents.Event{}, fmt.Errorf("%s: %v", op, err)
 	}
 
 	if err := event.SetData("application/protobuf", data); err != nil {
-		return fmt.Errorf("%s: %v", op, err)
+		return cloudevents.Event{}, fmt.Errorf("%s: %v", op, err)
 	}
 
-	return nil
+	return event, nil
 }
 
 func instanceToProto(instance *instancev1.Instance) (*instanceapiv1.Instance, error) {
-	const op = "events/instanceToProto"
+	const op = "event/instanceToProto"
 
 	structval, err := toStructpb(instance.Status.Metadata.State)
 	if err != nil {
@@ -102,7 +194,7 @@ func instanceToProto(instance *instancev1.Instance) (*instanceapiv1.Instance, er
 }
 
 func toAPIPlayer(player instancev1.InstancePlayer) (*instanceapiv1.Player, error) {
-	const op = "events/toAPIPlayer"
+	const op = "event/toAPIPlayer"
 	structval, err := toStructpb(player.Metadata)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %v", op, err)
@@ -126,7 +218,7 @@ func toAPIState(state instancev1.InstanceState) instanceapiv1.Instance_State {
 }
 
 func toStructpb(raw json.RawMessage) (*structpb.Struct, error) {
-	const op = "events/toStructpb"
+	const op = "event/toStructpb"
 	var data map[string]interface{}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("%s: %v", op, err)
